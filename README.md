@@ -1,0 +1,4 @@
+regnupg
+=======
+
+Python GnuPG wrapper
