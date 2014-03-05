@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.3.1'
+__version__ = '0.3.2'
 
 
 import sys
@@ -181,13 +181,13 @@ class Result (object):
             reason, who)
 
     def _no_member (self, code, value):
-        raise InvalidMemberError ('No signers are usable' if code == 'INV_SGNR' else 'No recipients are usable')
+        raise InvalidMemberError (self.err, 'No signers are usable' if code == 'INV_SGNR' else 'No recipients are usable')
 
     def _no_seckey (self, code, value):
-        raise GpgKeyError ('The secret key (%s) is not available' % value)
+        raise GpgKeyError ('The secret key (%s) is not available' % value, self.err)
 
     def _no_pubkey (self, code, value):
-        raise GpgKeyError ('The public key (%s) is not available' % value)
+        raise GpgKeyError ('The public key (%s) is not available' % value, self.err)
 
     def _missing_passphrase (self, code, value):
         raise PassphraseError ('Missing passphrase', self.err)
@@ -197,10 +197,10 @@ class Result (object):
 
     def _decryption_failed (self, code, value):
         raise DecryptionError ('The symmetric decryption failed', self.err)
-    
+
     def __unicode__ (self):
         return self.data
-    
+
     if _py3k:
         def __str__ (self):
             return self.__unicode__ ()
@@ -261,7 +261,7 @@ class ImportResult (Result):
             result = reason,
             result_text = result_text,
             problem = problem,
-            problem_text = self._problem_reasons.get (problem) if problem else ()
+            problem_text = self._problem_reasons.get (problem) if problem else None
         ))
 
     def _import_ok (self, code, value):
@@ -368,7 +368,7 @@ class GenKeyResult (Result):
 
 
 class SignResult (Result):
-    
+
     TYPE_DETACHED = 'D'
     TYPE_CLEARTEXT = 'C'
     TYPE_STANDARD = 'S'
@@ -612,7 +612,7 @@ class GnuPG (object):
         if self.homedir is not None:
             cmd += ('--homedir', self.homedir)
         if passphrase:
-            if '--batch' not in cmd:
+            if '--batch' not in args:
                 cmd.append ('--batch')
             cmd += ('--passphrase-fd', '0')
         if self.use_agent:
@@ -826,13 +826,15 @@ class GnuPG (object):
         :rtype: VerifyResult
         '''
         if data_filename is None:
-            result = self.execute (VerifyResult (), ('--verify',), None, sign_file)
-        else:
-            # Подпись для detached пишем в отдельный файл
-            sign_filename, sign_fd = tempfile.mkstemp (prefix = __name__)
-            os.write (sign_fd, sign_file.read ())
-            os.close (sign_fd)
+            return self.execute (VerifyResult (), ('--verify',), None, sign_file)
+        # Подпись для detached пишем в отдельный файл
+        sign_filename, sign_fd = tempfile.mkstemp (prefix = __name__)
+        os.write (sign_fd, sign_file.read ())
+        os.close (sign_fd)
+        try:
             result = self.execute (VerifyResult (), ('--verify', sign_filename, data_filename))
+        finally:
+            os.remove (sign_filename);
         return result
 
     def verify (self, sign, *args, **kwargs):
