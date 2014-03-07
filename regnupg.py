@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.3.2'
+__version__ = '0.3.3'
 
 
 import sys
@@ -367,12 +367,17 @@ class GenKeyResult (Result):
             'KEY_NOT_CREATED': self._key_not_created,
             'KEY_CREATED': self._key_created
         })
+    
+    def handle (self):
+        super (GenKeyResult, self).handle ()
+        if not self.fingerprint:
+            raise GeneralError (self.err)
 
     def _key_not_created (self, code, value):
         raise GeneralError (self.err)
 
     def _key_created (self, code, value):
-        self.fingerprint, self.type = value.split () [:2]
+        self.type, self.fingerprint = value.split () [:2]
 
 
 class SignResult (Result):
@@ -397,6 +402,11 @@ class SignResult (Result):
             'USERID_HINT': self._userid_hint,
             'SIG_CREATED': self._sig_created,
         })
+        
+    def handle (self):
+        super (SignResult, self).handle ()
+        if not self.data:
+            raise GeneralError (self.err)
 
     def _userid_hint (self, code, value):
         _, self.signer = value.split (None, 1)
@@ -514,7 +524,8 @@ class EncryptResult (VerifyResult):
 
     def handle (self):
         super (EncryptResult, self).handle ()
-        self.valid = bool (self.data)
+        if not self.data:
+            raise GeneralError (self.err)
 
     def _key_not_created (self, code, value):
         raise GeneralError (self.err)
@@ -527,6 +538,13 @@ class EncryptResult (VerifyResult):
 
     def _userid_hint (self, code, value):
         _, self.signer = value.split (None, 1)
+
+
+class DecryptResult (EncryptResult):
+    
+    def handle (self):
+        super (DecryptResult, self).handle ()
+        self.valid = bool (self.data)
 
 
 class GnuPG (object):
@@ -701,7 +719,7 @@ class GnuPG (object):
         '''
         return self.execute (
             ImportResult (),
-            ['--keyserver', keyserver, '--recv-keys'] + make_list (keys)
+            ['--keyserver', keyserver, '--recv-keys'] + list (make_list (keys))
         )
 
     def list_keys (self, secret = False):
@@ -746,7 +764,7 @@ class GnuPG (object):
         '''
         return self.execute (
             DeleteResult (),
-            ['--batch', '--delete-secret-key' if secret else '--delete-key'] + make_list (keys)
+            ['--batch', '--delete-secret-key' if secret else '--delete-key'] + list (make_list (keys))
         )
 
     def key_exists (self, key, secret = False):
@@ -887,7 +905,8 @@ class GnuPG (object):
         if sign_key:
             args += ('--sign', '--default-key', sign_key)
         if always_trust:
-            args.append ('--always-trust')
+            #args.append ('--always-trust')
+            args += ('--trust-model', 'always')
         return self.execute (EncryptResult (), args, passphrase, data_file, True)
 
     def encrypt (self, data, *args, **kwargs):
@@ -927,8 +946,9 @@ class GnuPG (object):
                 os.remove (output_filename)
             args += ('--output', output_filename)
         if always_trust:
-            args.append ('--always-trust')
-        return self.execute (EncryptResult (), args, passphrase, encrypted_file, True)
+            #args.append ('--always-trust')
+            args += ('--trust-model', 'always')
+        return self.execute (DecryptResult (), args, passphrase, encrypted_file, True)
 
     def decrypt (self, encrypted_data, *args, **kwargs):
         '''
