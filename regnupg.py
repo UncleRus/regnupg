@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.3.1'
+__version__ = '0.3.2'
 
 
 import sys
@@ -58,13 +58,20 @@ class Error (Exception):
 class GeneralError (Error):
 
     def __init__ (self, err):
-        super (GeneralError, self).__init__ ('\n'.join ((line for line in err if line.startswith ('gpg: -:'))), err)
+        super (GeneralError, self).__init__ ('\n'.join ((line.strip () for line in err if line.startswith ('gpg:'))), err)
 
 
 class NoDataError (Error):
+    
+    _reasons = {
+        1: 'No armored data',
+        2: 'Expected a packet but did not found one',
+        3: 'Invalid packet found, this may indicate a non OpenPGP message',
+        4: 'Signature expected but not found'
+    }
 
-    def __init__ (self, err):
-        super (NoDataError, self).__init__ ('No valid data found', err)
+    def __init__ (self, code, err):
+        super (NoDataError, self).__init__ (self._reasons.get (code, 'No valid data found'), err)
 
 
 class UnknownStatusError (Error):
@@ -104,8 +111,9 @@ class InvalidMemberError (Error):
 
     def __init__ (self, err, message, reason = None, who = None):
         if reason is not None:
+            message = message % (reason, who)
             reason = self._reasons [to_int (reason)]
-        super (InvalidMemberError, self).__init__ (message % (reason, who), err)
+        super (InvalidMemberError, self).__init__ (message, err)
 
 
 class SmartcardError (Error):
@@ -169,10 +177,10 @@ class Result (object):
                 raise UnknownStatusError (status, self.err)
 
     def _nodata (self, code, value):
-        raise NoDataError (self.err)
+        raise NoDataError (to_int (value), self.err)
 
     def _sc_op_failure (self, code, value):
-        raise SmartcardError (to_int (value))
+        raise SmartcardError (to_int (value), self.err)
 
     def _inv_member (self, code, value):
         reason, who = value.split ()
@@ -181,26 +189,26 @@ class Result (object):
             reason, who)
 
     def _no_member (self, code, value):
-        raise InvalidMemberError ('No signers are usable' if code == 'INV_SGNR' else 'No recipients are usable')
+        raise InvalidMemberError (self.err, 'No signers are usable' if code == 'INV_SGNR' else 'No recipients are usable')
 
     def _no_seckey (self, code, value):
-        raise GpgKeyError ('The secret key (%s) is not available' % value)
+        raise GpgKeyError ('The secret key (%s) is not available' % value, self.err)
 
     def _no_pubkey (self, code, value):
-        raise GpgKeyError ('The public key (%s) is not available' % value)
+        raise GpgKeyError ('The public key (%s) is not available' % value, self.err)
 
     def _missing_passphrase (self, code, value):
         raise PassphraseError ('Missing passphrase', self.err)
 
     def _bad_passphrase (self, code, value):
-        raise PassphraseError ('Bad passphrase', self.err)
+        raise PassphraseError ('Bad passphrase for key %s' % value, self.err)
 
     def _decryption_failed (self, code, value):
         raise DecryptionError ('The symmetric decryption failed', self.err)
-    
+
     def __unicode__ (self):
         return self.data
-    
+
     if _py3k:
         def __str__ (self):
             return self.__unicode__ ()
@@ -261,7 +269,7 @@ class ImportResult (Result):
             result = reason,
             result_text = result_text,
             problem = problem,
-            problem_text = self._problem_reasons.get (problem) if problem else ()
+            problem_text = self._problem_reasons.get (problem) if problem else None
         ))
 
     def _import_ok (self, code, value):
@@ -368,7 +376,7 @@ class GenKeyResult (Result):
 
 
 class SignResult (Result):
-    
+
     TYPE_DETACHED = 'D'
     TYPE_CLEARTEXT = 'C'
     TYPE_STANDARD = 'S'
@@ -463,6 +471,7 @@ class VerifyResult (Result):
         self.fingerprint, _, timestamp, expire_timestamp = value.split (None) [:4]
         self.timestamp = to_timestamp (timestamp)
         self.expire_timestamp = to_timestamp (expire_timestamp)
+        # FIXME: читать поля  <sig-version> <reserved> <pubkey-algo> <hash-algo> <sig-class>
 
     def _errsig (self, code, value):
         self.valid = False
@@ -612,7 +621,7 @@ class GnuPG (object):
         if self.homedir is not None:
             cmd += ('--homedir', self.homedir)
         if passphrase:
-            if '--batch' not in cmd:
+            if '--batch' not in args:
                 cmd.append ('--batch')
             cmd += ('--passphrase-fd', '0')
         if self.use_agent:
@@ -826,13 +835,15 @@ class GnuPG (object):
         :rtype: VerifyResult
         '''
         if data_filename is None:
-            result = self.execute (VerifyResult (), ('--verify',), None, sign_file)
-        else:
-            # Подпись для detached пишем в отдельный файл
-            sign_filename, sign_fd = tempfile.mkstemp (prefix = __name__)
-            os.write (sign_fd, sign_file.read ())
-            os.close (sign_fd)
+            return self.execute (VerifyResult (), ('--verify',), None, sign_file)
+        # Подпись для detached пишем в отдельный файл
+        sign_filename, sign_fd = tempfile.mkstemp (prefix = __name__)
+        os.write (sign_fd, sign_file.read ())
+        os.close (sign_fd)
+        try:
             result = self.execute (VerifyResult (), ('--verify', sign_filename, data_filename))
+        finally:
+            os.remove (sign_filename);
         return result
 
     def verify (self, sign, *args, **kwargs):

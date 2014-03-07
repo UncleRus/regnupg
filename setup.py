@@ -6,7 +6,7 @@ setup (
     name = 'regnupg',
     description = 'A wrapper for the Gnu Privacy Guard (GPG or GnuPG)',
     long_description = open ('README.md').read (),
-    license = 'LICENSE.txt',
+    license = 'LGPLv3',
     version = version,
     author = 'Ruslan V. Uss',
     author_email = 'unclerus@gmail.com',
