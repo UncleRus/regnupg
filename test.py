@@ -32,18 +32,26 @@ class Test (unittest.TestCase):
         self.assertEqual (res.results [0].fingerprint, '6C74DF21146E083BB6FB07545D189C58F0250410', 'Incorrect fingerprint of imported key')
         self.assertRaises (regnupg.NoDataError, self.gpg.import_keys, 'FAKE KEY DATA')
         
+    def test_recv_keys (self):
+        res = self.gpg.recv_keys ('keyserver.ubuntu.com', '3E5C1192')
+        self.assertEqual (res.results [0].fingerprint, 'C47415DFF48C09645B78609416126D3A3E5C1192', 'Incorrect fingerprint of received key')
+        
     def test_export_keys (self):
         key = self._gen_key ('password')
         self.assertTrue (self.gpg.export_keys (key.fingerprint).data.startswith ('-----BEGIN PGP PUBLIC KEY BLOCK-----'), 'Public key not exported')
         self.assertTrue (self.gpg.export_keys (key.fingerprint, True).data.startswith ('-----BEGIN PGP PRIVATE KEY BLOCK-----'), 'Private key not exported')
         
-    def test_generate_list_delete_keys (self):
+    def test_generate_list_keys (self):
         res = self._gen_key ('password')
         self.assertIsNotNone (res.fingerprint, 'Key is not generated')
         self.assertIn (res.fingerprint, self.gpg.list_keys ().keys, 'Generated public key not found')
         self.assertIn (res.fingerprint, self.gpg.list_keys (True).keys, 'Generated secret key not found')
-        self.gpg.delete_keys (res.fingerprint, True)
-        self.gpg.delete_keys (res.fingerprint)
+        
+    def test_delete_keys (self):
+        key = self._gen_key ('password')
+        self.assertRaises (regnupg.KeyDeleteError, self.gpg.delete_keys, key.fingerprint)
+        self.gpg.delete_keys (key.fingerprint, True)
+        self.gpg.delete_keys (key.fingerprint)
         self.assertEqual (len (self.gpg.list_keys ().keys), 0, 'Key has not been deleted')
         self.gpg.delete_keys (('fakekey1', 'fakekey2'))
         
