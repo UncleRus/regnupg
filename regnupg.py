@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.3.3'
+__version__ = '0.3.4'
 
 
 import sys
@@ -62,7 +62,7 @@ class GeneralError (Error):
 
 
 class NoDataError (Error):
-    
+
     _reasons = {
         1: 'No armored data',
         2: 'Expected a packet but did not found one',
@@ -206,15 +206,16 @@ class Result (object):
     def _decryption_failed (self, code, value):
         raise DecryptionError ('The symmetric decryption failed', self.err)
 
-    def __unicode__ (self):
-        return self.data
-
     if _py3k:
         def __str__ (self):
-            return self.__unicode__ ()
+            return self.data
     else:
+        def __unicode__ (self):
+            return self.data
+
         def __str__ (self):
-            return self.__unicode__ ().encode ('utf8')
+            # FIXME: исправить на нормальный способ определения кодировки
+            return self.data.encode ('utf8')
 
     def __nonzero__ (self):
         return bool (self.data)
@@ -260,7 +261,7 @@ class ImportResult (Result):
         reason = int (reason)
         problem = int (problem) if problem else None
         if fingerprint:
-            result_text = [text for bit, text in self._ok_reasons.iteritems () if bit & reason] if reason > 0 else ['No actually changed']
+            result_text = [text for bit, text in self._ok_reasons.items () if bit & reason] if reason > 0 else ['No actually changed']
         else:
             result_text = ()
         self.results.append (AttributedDict (
@@ -291,7 +292,6 @@ class ImportResult (Result):
         return bool (self.results)
 
     __bool__ = __nonzero__
-
 
 
 class ListResult (Result):
@@ -367,7 +367,7 @@ class GenKeyResult (Result):
             'KEY_NOT_CREATED': self._key_not_created,
             'KEY_CREATED': self._key_created
         })
-    
+
     def handle (self):
         super (GenKeyResult, self).handle ()
         if not self.fingerprint:
@@ -402,7 +402,7 @@ class SignResult (Result):
             'USERID_HINT': self._userid_hint,
             'SIG_CREATED': self._sig_created,
         })
-        
+
     def handle (self):
         super (SignResult, self).handle ()
         if not self.data:
@@ -541,7 +541,7 @@ class EncryptResult (VerifyResult):
 
 
 class DecryptResult (EncryptResult):
-    
+
     def handle (self):
         super (DecryptResult, self).handle ()
         self.valid = bool (self.data)
@@ -601,7 +601,7 @@ class GnuPG (object):
                 if not chunk:
                     break
                 chunks.append (chunk)
-            result.data = type (chunk)().join (chunks) if _py3k else ''.join (chunks)
+            result.data = (b'' if _py3k else '').join (chunks).decode (self.encoding)
 
         def copy_stream (source, target, chunk_size = 1024):
             '''Copy one stream to another'''
@@ -609,17 +609,25 @@ class GnuPG (object):
             if not source:
                 return
             sent = 0
-            encoding = getattr (sys, 'encoding', 'ascii')
             while True:
                 data = source.read (chunk_size)
                 if not data:
                     break
+                if _py3k:
+                    if binary and isinstance (data, str):
+                        data = data.encode (self.encoding)
+                    elif not binary and isinstance (data, bytes):
+                        data = data.decode (self.encoding)
                 log.debug ('copy_stream(): sending chunk from pos %d', sent)
                 try:
                     target.write (data)
                 except UnicodeError:
-                    target.write (data.encode (encoding))
+                    if not _py3k and type (data) == str:
+                        target.write (data.decode (self.encoding))
+                    else:
+                        target.write (data.encode (self.encoding))
                 except:
+                    # Broken pipes
                     log.exception ('copy_stream(): error sending data')
                     break
                 sent += len (data)
@@ -657,7 +665,8 @@ class GnuPG (object):
             # Пишем пароль в stdin
             if binary:
                 passphrase = passphrase.encode (self.encoding)
-            stdin.write ('%s\n' % passphrase)
+            stdin.write (passphrase)
+            stdin.write (b'\n' if _py3k and binary else '\n')
             log.debug ('GnuPG.execute(): Wrote passphrase %r' % passphrase)
 
         # Запускаем поток перекачки данных из input_ в stdin
@@ -795,7 +804,7 @@ class GnuPG (object):
         params = self.default_key_params.copy ()
         params.update (key_params)
         result = ['Key-Type: %s' % params.pop ('Key-Type')]
-        result += ('%s: %s' % (param, value) for param, value in params.iteritems ())
+        result += ('%s: %s' % (param, value) for param, value in params.items ())
         result.append ('%commit\n')
         return '\n'.join (result)
 
