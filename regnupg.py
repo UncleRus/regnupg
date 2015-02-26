@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.3.4'
+__version__ = '0.3.5'
 
 
 import sys
@@ -23,6 +23,22 @@ try:
 except ImportError:
     from StringIO import StringIO
     _BinaryStream = StringIO
+
+
+# Hide M$Win console
+if subprocess.mswindows:
+    _startup_info = subprocess.STARTUPINFO ()
+    try:
+        subprocess.STARTF_USESHOWWINDOW
+        _sp = subprocess
+    except AttributeError:
+        import _subprocess
+        _sp = _subprocess
+    _startup_info.dwFlags |= _sp.STARTF_USESHOWWINDOW
+    _startup_info.wShowWindow = _sp.SW_HIDE
+    _popen_kwargs = {'startupinfo': _startup_info}
+else:
+    _popen_kwargs = {}
 
 
 log = logging.getLogger (__name__)
@@ -656,7 +672,7 @@ class GnuPG (object):
 
         log.debug ('GnuPG.execute(): >>> %s', ' '.join (cmd))
 
-        proc = subprocess.Popen (cmd, stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        proc = subprocess.Popen (cmd, stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.PIPE, **_popen_kwargs)
 
         stdin = proc.stdin if binary else codecs.getwriter (self.encoding) (proc.stdin)
         stderr = codecs.getreader (self.encoding) (proc.stderr)

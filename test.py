@@ -7,7 +7,7 @@ import shutil, os
 
 import logging
 regnupg.log.addHandler (logging.StreamHandler ())
-regnupg.log.setLevel (logging.DEBUG)
+#regnupg.log.setLevel (logging.DEBUG)
 
 
 class Test (unittest.TestCase):
@@ -82,6 +82,14 @@ class Test (unittest.TestCase):
         self.gpg.delete_keys (sender.fingerprint)
 
         self.assertRaises (regnupg.GpgKeyError, self.gpg.decrypt, encrypted.data, 'receiver_pwd', sender.fingerprint)
+
+    def test_big_files (self):
+        sender = self._gen_key ('sender_pwd')
+        receiver = self._gen_key ('receiver_pwd')
+
+        encrypted = self.gpg.encrypt (open ('/tmp/bigfile.pdf', 'rb').read (), receiver.fingerprint, sender.fingerprint, 'sender_pwd', True)
+        self.assertTrue (encrypted.data.startswith ('-----BEGIN PGP MESSAGE-----'), 'Cannot encrypt/sign')
+
 
 
 if __name__ == "__main__":
