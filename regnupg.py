@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.3.9'
+__version__ = '0.4.0'
 
 
 import sys
@@ -580,6 +580,21 @@ class DecryptResult (EncryptResult):
         self.valid = bool(self.data)
 
 
+class VersionResult (object):
+
+    LINE_START = 'gpg (GnuPG) '
+
+    def __init__(self):
+        self.err = None
+        self.data = None
+
+    def handle(self):
+        line = self.data.strip().split('\n')[0]
+        if not line.startswith(self.LINE_START):
+            raise GeneralError('gpg: Cannot get GnuPG version')
+        self.version = int(line[len(self.LINE_START):].split('.')[0])
+
+
 class GnuPG (object):
 
     default_key_params = {
@@ -598,6 +613,7 @@ class GnuPG (object):
         if self.encoding is None:
             # This happens on Jython!
             self.encoding = sys.stdin.encoding
+        self.version = None
 
     def create_stream(self, data):
         if (_py3k and isinstance(data, str)) or (not _py3k and type(data) != str):
@@ -677,6 +693,9 @@ class GnuPG (object):
             thread.start()
             return thread
 
+        if not self.version and args != ('--version',):
+            self.version = self.execute(VersionResult(), ('--version',)).version
+
         cmd = [self.executable, '--status-fd', '2', '--no-tty',
                '--lock-multiple', '--no-permission-warning']
         if self.homedir is not None:
@@ -684,7 +703,9 @@ class GnuPG (object):
         if passphrase is not None:
             if '--batch' not in args:
                 cmd.append('--batch')
-            cmd += ('--passphrase-fd', '0', '--pinentry-mode', 'loopback')
+            cmd += ('--passphrase-fd', '0')
+            if self.version > 1:
+                cmd += ('--pinentry-mode', 'loopback')
         if self.use_agent:
             cmd.append('--use-agent')
         cmd.extend(args)
@@ -1012,3 +1033,5 @@ class GnuPG (object):
         :rtype: EncryptResult
         '''
         return self.decrypt_file(self.create_stream(encrypted_data), *args, **kwargs)
+
+

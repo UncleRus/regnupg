@@ -11,10 +11,11 @@ regnupg.log.addHandler(logging.StreamHandler())
 #regnupg.log.setLevel(logging.DEBUG)
 
 
-class Test(unittest.TestCase):
+class TestV1(unittest.TestCase):
 
     homedir = '/tmp/regnupg-test'
     message = u'Test message, тестовое сообщение'
+    executable = 'gpg1'
 
     def setUp(self):
         try:
@@ -22,7 +23,7 @@ class Test(unittest.TestCase):
         except:
             pass
         os.mkdir(self.homedir)
-        self.gpg = regnupg.GnuPG(homedir=self.homedir)
+        self.gpg = regnupg.GnuPG(homedir=self.homedir, executable=self.executable)
 
     def tearDown(self):
         try:
@@ -70,7 +71,7 @@ class Test(unittest.TestCase):
         verify = self.gpg.verify(sign.data)
         self.assertTrue(verify.valid, 'Invalid sign')
         self.assertEqual(verify.fingerprint, key.fingerprint, 'Unexpected signer fingerprint')
-        self.assertRaises(regnupg.InvalidMemberError, self.gpg.sign, self.message, 'fakefingerprint')
+        self.assertRaises(regnupg.GeneralError, self.gpg.sign, self.message, 'fakefingerprint')
         self.assertRaises(regnupg.NoDataError, self.gpg.verify, 'FAKE SIGN DATA')
 
     def test_encrypt_decrypt(self):
@@ -96,6 +97,21 @@ class Test(unittest.TestCase):
 
         encrypted = self.gpg.encrypt(open('/tmp/bigfile.pdf', 'rb').read(), receiver.fingerprint, sender.fingerprint, 'sender_pwd', True)
         self.assertTrue(encrypted.data.startswith('-----BEGIN PGP MESSAGE-----'), 'Cannot encrypt/sign')
+
+
+class TestV2(TestV1):
+
+    executable = 'gpg2'
+
+    def test_sign_verify(self):
+        key = self._gen_key('password')
+        sign = self.gpg.sign(self.message, key.fingerprint, 'password')
+        self.assertTrue(sign.data.startswith('-----BEGIN PGP SIGNED MESSAGE-----'), 'Invalid sign data')
+        verify = self.gpg.verify(sign.data)
+        self.assertTrue(verify.valid, 'Invalid sign')
+        self.assertEqual(verify.fingerprint, key.fingerprint, 'Unexpected signer fingerprint')
+        self.assertRaises(regnupg.InvalidMemberError, self.gpg.sign, self.message, 'fakefingerprint')
+        self.assertRaises(regnupg.NoDataError, self.gpg.verify, 'FAKE SIGN DATA')
 
 
 if __name__ == "__main__":
