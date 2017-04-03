@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.3.8'
+__version__ = '0.3.9'
 
 
 import sys
@@ -175,7 +175,7 @@ class Result (object):
         self.status = None
         self.data = None
         self.processors = {
-            'NEWSIG': None, 'KEY_CONSIDERED': None, 'PINENTRY_LAUNCHED': None,
+            'IMPORT_OK': None, 'NEWSIG': None, 'KEY_CONSIDERED': None, 'PINENTRY_LAUNCHED': None,
             'NODATA': self._nodata,
             'SC_OP_FAILURE': self._sc_op_failure,
             'INV_SGNR': self._inv_member,
@@ -198,7 +198,7 @@ class Result (object):
                     self.processors[status](status, value)
             else:
                 raise UnknownStatusError(status, self.err)
-            
+
     def _failure(self, code, value):
         raise GeneralError(self.err)
 
