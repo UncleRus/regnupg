@@ -1,11 +1,19 @@
-from distutils.core import setup
+import re
+import os
+from setuptools import setup
 
-from regnupg import __version__ as version
 
-setup (
+DIR = os.path.dirname(__file__)
+
+
+with open(os.path.join(DIR, 'regnupg.py')) as f:
+    version = re.search(r'__version__\s+=\s+[\'\"]+(.*)[\'\"]+', f.read()).group(1)
+
+
+setup(
     name = 'regnupg',
     description = 'A wrapper for the Gnu Privacy Guard (GPG or GnuPG)',
-    long_description = open ('README.md').read (),
+    long_description = open('README.md').read(),
     license = 'LGPLv3',
     version = version,
     author = 'Ruslan V. Uss',

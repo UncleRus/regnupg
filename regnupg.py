@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.4.0'
+__version__ = '0.4.2'
 
 
 import sys
@@ -25,8 +25,13 @@ except ImportError:
     _BinaryStream = StringIO
 
 
+try:
+    _win = subprocess.mswindows
+except AttributeError:
+    _win = subprocess._mswindows
+
 # Hide M$Win console
-if subprocess.mswindows:
+if _win:
     _startup_info = subprocess.STARTUPINFO()
     try:
         subprocess.STARTF_USESHOWWINDOW
