@@ -597,7 +597,7 @@ class VersionResult (object):
         line = self.data.strip().split('\n')[0]
         if not line.startswith(self.LINE_START):
             raise GeneralError('gpg: Cannot get GnuPG version')
-        self.version = int(line[len(self.LINE_START):].split('.')[0])
+        self.version = (int(n) for n in line[len(self.LINE_START):].split('.')[:2])
 
 
 class GnuPG (object):
@@ -709,7 +709,7 @@ class GnuPG (object):
             if '--batch' not in args:
                 cmd.append('--batch')
             cmd += ('--passphrase-fd', '0')
-            if self.version > 1:
+            if self.version >= (2, 1):
                 cmd += ('--pinentry-mode', 'loopback')
         if self.use_agent:
             cmd.append('--use-agent')
