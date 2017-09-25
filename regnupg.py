@@ -597,7 +597,7 @@ class VersionResult (object):
         line = self.data.strip().split('\n')[0]
         if not line.startswith(self.LINE_START):
             raise GeneralError('gpg: Cannot get GnuPG version')
-        self.version = (int(n) for n in line[len(self.LINE_START):].split('.')[:2])
+        self.version = tuple(int(n) for n in line[len(self.LINE_START):].split('.')[:2])
 
 
 class GnuPG (object):
