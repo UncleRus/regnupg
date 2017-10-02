@@ -1,13 +1,17 @@
 import re
 import os
+import sys
 from setuptools import setup
 
 
 DIR = os.path.dirname(__file__)
 
 
-with open(os.path.join(DIR, 'regnupg.py')) as f:
-    version = re.search(r'__version__\s+=\s+[\'\"]+(.*)[\'\"]+', f.read()).group(1)
+if sys.version_info[0] >= 3:
+    data = open(os.path.join(DIR, 'regnupg.py'), encoding='utf-8').read()
+else:
+    data = open(os.path.join(DIR, 'regnupg.py')).read()
+version = re.search(r'__version__\s+=\s+[\'\"]+(.*)[\'\"]+', data).group(1)
 
 
 setup(
