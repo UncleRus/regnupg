@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.4.3'
+__version__ = '0.4.4'
 
 
 import sys
@@ -552,7 +552,8 @@ class EncryptResult (VerifyResult):
             'NEED_PASSPHRASE': None, 'NEED_PASSPHRASE_SYM': None, 'GOOD_PASSPHRASE': None,
             'BEGIN_DECRYPTION': None, 'END_DECRYPTION': None, 'DECRYPTION_OKAY': None,
             'BEGIN_ENCRYPTION': None, 'END_ENCRYPTION': None,
-            'SIG_CREATED': None,
+            'SIG_CREATED': None, 'DECRYPTION_KEY': None, 'DECRYPTION_COMPLIANCE_MODE': None,
+            'VERIFICATION_COMPLIANCE_MODE': None,
 
             'KEY_NOT_CREATED': self._key_not_created,
             'KEYEXPIRED': self._key_expired,
